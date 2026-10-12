@@ -92,3 +92,26 @@ not been run; the live site was created by hand. Static sites don't sleep, but t
 - The stock-history product filter lists the first 100 products by name.
 - No automated browser/E2E tests; the UI was exercised manually against the seeded backend.
 - A site deployed from a public Git URL doesn't rebuild on push; use Render's *Manual Deploy → Deploy latest commit*.
+
+## AI-use disclosure (frontend)
+
+**Tool used:** Claude Code (Anthropic's AI coding assistant), working from the written assessment brief. The full disclosure, covering
+the whole project, is in [`../Stockpilot_BE/README.md`](../Stockpilot_BE/README.md#11-ai-use-disclosure); this is the frontend part.
+
+**What it was used for**
+- Generating the first version of the React app: routing, auth/workspace/toast/confirm contexts, the API client, all pages and components, and the stylesheet.
+- Later changes requested by the author: the sidebar layout and colour scheme, a custom workspace dropdown, rupee formatting, 10-per-page pagination with numbered buttons, Admin/Staff labels, and the static-hosting fallback for page refreshes.
+- Writing the frontend unit tests and this README.
+
+**How it was verified**
+- `npm test` (unit tests for the money/cents maths, the permission mirror and API error mapping) and `npm run build` were run after the changes.
+- The UI was exercised in a browser against the running backend: sign-in, the multi-item order builder, cancelling an order, stock-adjustment validation, Staff vs Admin navigation, pagination, and a check of every screen at 375 px width for horizontal overflow.
+- The deployed site was tested for page refresh (deep links), the link to the API, CORS and sign-in.
+
+**What the author reviewed and changed:** the author tried the running UI and directed the design and wording changes listed above, chose the demo data shown, and tested the deployed site.
+
+**Issues found and corrected**
+- The workspace id wasn't visible to a parent layout component, so the layout was restructured so the route owns it.
+- After signing in, users were returned to the page they had left; sign-in now always starts at the landing page (Dashboard for Admins).
+- Refreshing a page on the static host returned "Not Found"; the build now also writes `dist/404.html` as a single-page-app fallback.
+- Totals shown in the order form are only a client-side estimate in integer cents; the server's calculation is the authoritative one.
