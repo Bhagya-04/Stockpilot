@@ -1,7 +1,7 @@
 # StockPilot — Backend (FastAPI + PostgreSQL)
 
 StockPilot is a multi-workspace inventory and order management platform for small businesses.
-This repository is the **API**; the React UI lives in the sibling `Stockpilot_FE` repository.
+This folder is the **API**; the React UI lives in the sibling `Stockpilot_FE` folder of the same repository.
 
 - **Workspaces** — each business has its own isolated products, stock history, orders, dashboard and team.
 - **Products** — workspace-scoped catalogue with exact decimal prices, SKU uniqueness per workspace, low-stock thresholds, activate/deactivate.
@@ -10,9 +10,16 @@ This repository is the **API**; the React UI lives in the sibling `Stockpilot_FE
 - **Dashboard** — active products, low-stock count, orders by status, order value over a date range, recent orders and stock changes.
 - **Auth & roles** — JWT login, `OWNER` / `STAFF` roles per workspace, enforced on the server for every request.
 
-> **Deployed app:** `<ADD DEPLOYED FRONTEND URL>` · **API docs:** `<ADD DEPLOYED API URL>/docs` · **Health:** `<ADD DEPLOYED API URL>/health`
-> **Demo login:** see [Demo access](#demo-access).
-> Free hosting tiers sleep when idle — the first request after a pause can take 30–60 s.
+| | |
+|---|---|
+| **Deployed app** | https://stockpilot-web-u8v0.onrender.com |
+| **API** | https://stockpilot-api-6skh.onrender.com (interactive docs: [/docs](https://stockpilot-api-6skh.onrender.com/docs) · health: [/health](https://stockpilot-api-6skh.onrender.com/health)) |
+| **Demo login** | `admin@stockpilot.com` / `Admin@123` (full access) · `staff@stockpilot.com` / `Staff@123` (limited) — see [Demo access](#7-demo-access). You can also self-register. |
+| **Repository** | https://github.com/Bhagya-04/Stockpilot |
+
+> **Cold starts:** the API runs on a free Render instance that **sleeps after ~15 minutes of inactivity**. The first request after a pause
+> (including the first login) can take about a minute; later requests are fast. No data is lost when it sleeps.
+> **Data lifetime:** the free Render PostgreSQL used for the demo is deleted on **2026-11-11** unless upgraded (see [Deployment](#8-deployment)).
 
 ---
 
@@ -306,8 +313,10 @@ SQL bound parameters are hidden (`hide_parameters=True`). Responses carry `X-Req
 
 ## 7. Demo access
 
-Seed synthetic data with `python -m scripts.seed` (safe to re-run; it does nothing if the demo owner already exists). It creates two
-**unrelated** workspaces so isolation can be demonstrated, with orders in every status.
+**On the deployed app** the accounts below already exist and contain demo data, so an evaluator can sign in immediately.
+To load the same data into your own database use `python -m scripts.seed` (safe to re-run; it does nothing if the demo admin already
+exists). It creates two **unrelated** workspaces so isolation can be demonstrated, with orders in every status.
+On Windows, `scripts\setup_local.ps1` creates the databases, writes `.env`, runs the migrations and seeds in one go.
 
 | Role | Email | Password | Workspace |
 |---|---|---|---|
@@ -318,25 +327,45 @@ Seed synthetic data with `python -m scripts.seed` (safe to re-run; it does nothi
 These are public, demo-only credentials for synthetic accounts (defined in `scripts/seed.py`) — **do not seed a database that holds
 real data.** A database seeded by an earlier version (with `owner@/staff@/rival@demo-stockpilot.com`) is upgraded in place by
 re-running `python -m scripts.seed`.
-Alternatively, anyone can self-register on the login page.
+Alternatively, anyone can **self-register** on the login page (*Create account*); a new user starts with their own empty workspace, or
+an Admin can add them to an existing workspace from the *Team* page.
 
 ---
 
 ## 8. Deployment
 
-Any host with PostgreSQL works. The repo includes a `Dockerfile` (runs `alembic upgrade head` then uvicorn) and a Render blueprint
-(a root-level `render.yaml` for both services; use a free Neon database for PostgreSQL). **Those two files have not been deployed from this
-repository yet** — treat them as a starting point and fill in the deployed URLs above once you have verified them.
+**Where it runs (all free tiers):**
 
-Checklist:
-1. Provision PostgreSQL; set `DATABASE_URL`.
-2. Set `SECRET_KEY` (random, ≥ 32 chars), `ENVIRONMENT=production`.
-3. Set `CORS_ORIGINS` to the exact deployed frontend origin (scheme + host, no trailing slash).
-4. Start command: `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
-5. Seed demo data once if wanted: `python -m scripts.seed`.
-6. Point the frontend's `VITE_API_BASE_URL` at `https://<api-host>/api/v1`.
+| Part | Host | Notes |
+|---|---|---|
+| Frontend | Render **Static Site** — https://stockpilot-web-u8v0.onrender.com | built from `Stockpilot_FE` (`npm ci && npm run build`, publish `dist`) |
+| API | Render **Web Service** (Docker) — https://stockpilot-api-6skh.onrender.com | built from `Stockpilot_BE/Dockerfile`; runs `alembic upgrade head` on every start; health check `/health` |
+| Database | Render **PostgreSQL** (free, Singapore) | the API connects through Render's private *internal* URL |
 
-Auth uses bearer tokens (no cookies), so no cookie/SameSite configuration is needed across domains — only CORS.
+**Behaviour to expect:** the API sleeps after ~15 min idle and needs ~1 minute to wake (cold start). The database persists across
+API restarts and redeploys, but the **free Render database expires on 2026-11-11** and is then deleted (a 14-day grace period applies if
+you upgrade). Use a paid instance, or another PostgreSQL host, for anything long-lived.
+
+**Environment variables on the API service** (names only; values live in Render, never in the repo):
+`ENVIRONMENT=production`, `DATABASE_URL`, `SECRET_KEY`, `CORS_ORIGINS` (= the frontend origin above, exact, no trailing slash).
+**On the static site:** `VITE_API_BASE_URL` (= `https://stockpilot-api-6skh.onrender.com/api/v1`), `NODE_VERSION=20`, `VITE_CURRENCY`, `VITE_LOCALE`.
+
+**Schema:** created only by Alembic migrations (`alembic upgrade head`), which the container runs on start — a brand-new database needs no manual SQL.
+**Demo data:** loaded once through the public API (accounts, products, stock adjustments and orders in every status), so no database
+credentials were needed; `python -m scripts.seed` does the same directly against a database.
+
+**CORS / cookies:** authentication uses bearer tokens (no cookies), so cross-site cookie/SameSite settings don't apply — only CORS, which
+allows exactly the origins listed in `CORS_ORIGINS`.
+
+**To deploy your own copy**
+1. Provision PostgreSQL and set `DATABASE_URL` (a `postgres://…` URL is accepted).
+2. Set `SECRET_KEY` (random, ≥ 32 chars), `ENVIRONMENT=production`, and `CORS_ORIGINS` to the exact frontend origin.
+3. Start command (already in the Dockerfile): `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+4. Build the frontend with `VITE_API_BASE_URL=https://<api-host>/api/v1`.
+5. Optionally seed demo data (`python -m scripts.seed`).
+
+A root-level `render.yaml` (Blueprint) describing both services is included; the live deployment was created by hand in the Render
+dashboard, so the Blueprint file itself has **not** been exercised.
 
 ---
 
@@ -352,4 +381,24 @@ Auth uses bearer tokens (no cookies), so no cookie/SameSite configuration is nee
 - The stock-history product filter in the UI loads the first 100 products by name.
 - Dashboard "order value" counts orders by *creation* date, not completion date.
 - Sync SQLAlchemy in a thread pool (adequate for this scale; no background jobs).
-- `render.yaml` / `Dockerfile` are untested against a real deployment.
+- The root `render.yaml` Blueprint has not been run; the live services were created manually in the Render dashboard (the `Dockerfile` is verified by that deployment).
+- **Free-tier hosting:** the API sleeps when idle (≈1 min cold start) and the free Render database is deleted on 2026-11-11. Services deployed from a public Git URL don't redeploy automatically on push (use *Manual Deploy*).
+- The demo passwords are public by design (synthetic accounts); change them, and don't seed a database that holds real data.
+- No automated browser/E2E tests; the UI was exercised manually.
+
+---
+
+## 10. Self-review against the brief
+
+| Question | Answer | Where |
+|---|---|---|
+| Can a user in Workspace A access Workspace B's data by changing an ID? | No. Every route checks membership first (404 for non-members, identical to "doesn't exist") and every query filters by `workspace_id`; the DB also has composite foreign keys. | `app/api/deps.py`, `tests/test_isolation.py`, `tests/test_db_constraints.py` |
+| Can two concurrent orders push stock below zero? | No. Products are row-locked (`SELECT … FOR UPDATE`, in id order) before the check and deduction; `CHECK (stock_quantity >= 0)` is a backstop. | `order_service.create_order`, `tests/test_concurrency.py` |
+| If the 2nd product in an order fails, are earlier writes rolled back? | Yes. One transaction (`unit_of_work`); nothing commits until the end. | `tests/test_orders.py::test_multi_item_order_is_all_or_nothing` |
+| Can a repeated cancellation restore stock twice? | No. The order row is locked, the second request sees `CANCELLED` (409), and a partial unique index on the ledger forbids a second restore row. | `order_service.change_status`, `tests/test_orders.py`, `tests/test_concurrency.py` |
+| Does changing a product's price change an older order? | No. Order lines store name/SKU/price snapshots. | `tests/test_orders.py::test_price_change_does_not_alter_existing_orders` |
+| Does every inventory change have an audit record? | Yes. `apply_stock_change()` is the only function that mutates stock and always writes the ledger row (opening balance, adjustments, reservations, cancellations). | `app/services/inventory_service.py`, `tests/test_inventory.py` |
+| Can an evaluator start from a fresh database using the repo instructions? | Yes: `alembic upgrade head`; the test-suite itself rebuilds a schema from the migrations each run. | `tests/test_db_constraints.py::test_models_and_migrations_are_in_sync` |
+| Do tests run from a clean checkout? | Yes: `pip install -r requirements-dev.txt`, set `TEST_DATABASE_URL`, run `pytest -q` (115 tests). | §5 |
+| Does the deployed app use persistent storage and safe configuration? | Yes: PostgreSQL, secrets only in Render environment settings, `.env` git-ignored. Caveat: the free database expires on 2026-11-11. | §8 |
+| Can I explain the transaction boundaries, permission model and stock lifecycle? | Documented in §2 (permissions) and §3 (lifecycle, locking, transactions). | §2, §3 |
