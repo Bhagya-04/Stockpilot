@@ -64,6 +64,7 @@ cd Stockpilot_FE && npm test         # frontend unit tests
 - [x] Automated tests and command: `cd Stockpilot_BE && pytest -q` (115 tests); `cd Stockpilot_FE && npm test`
 - [x] Known limitations: backend README §9
 - [x] Self-review against the brief: backend README §10
+- [x] AI-use disclosure: backend README §11
 
 ## Deploy
 The live demo runs on Render (API = Docker web service, UI = static site, database = free Render PostgreSQL). `render.yaml` (repo root)

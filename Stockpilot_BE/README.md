@@ -402,3 +402,33 @@ dashboard, so the Blueprint file itself has **not** been exercised.
 | Do tests run from a clean checkout? | Yes: `pip install -r requirements-dev.txt`, set `TEST_DATABASE_URL`, run `pytest -q` (115 tests). | §5 |
 | Does the deployed app use persistent storage and safe configuration? | Yes: PostgreSQL, secrets only in Render environment settings, `.env` git-ignored. Caveat: the free database expires on 2026-11-11. | §8 |
 | Can I explain the transaction boundaries, permission model and stock lifecycle? | Documented in §2 (permissions) and §3 (lifecycle, locking, transactions). | §2, §3 |
+
+---
+
+## 11. AI-use disclosure
+
+**Tool used:** Claude Code (Anthropic's AI coding assistant), working from the written assessment brief.
+
+**What it was used for**
+- Planning the rules first (workspace boundaries, role permissions, order transitions, when stock changes) and choosing the stock strategy (reserve at creation).
+- Generating the first implementation of the schema and migration, the API, the services and the React UI, and the test-suite.
+- Running the tests and the app, diagnosing failures, and writing the READMEs and deployment configuration.
+
+**How the output was verified (not just generated)**
+- The full backend suite (115 tests, including concurrency and DB-constraint tests and a migrations-match-models check) was run against a real PostgreSQL.
+- The concurrency tests were checked for usefulness by temporarily removing the `SELECT … FOR UPDATE` row locks: four of them then failed (overselling), and the locks were restored.
+- The application was exercised in a browser against seeded data: sign-in, creating and cancelling multi-item orders, stock-adjustment validation, role restrictions (Staff vs Admin), CORS, and mobile layouts.
+- The deployed app (Render) was checked end to end: health endpoint, CORS from the deployed frontend, registration, and the demo logins.
+
+**What the author reviewed and changed after generation:** the author tried the running application, chose the demo catalogue, the Admin/Staff
+naming, rupee currency, the sidebar design and 10-per-page pagination, set up the Render deployment, and tested the deployed login flow.
+
+**Bugs and assumptions found and corrected along the way**
+- Response models first reused input-only digit limits, which would have rejected large order totals; fixed.
+- A DB-constraint test helper rolled back its own setup data and could pass for the wrong reason; fixed so setup is committed.
+- Routing: the workspace id was not visible from the parent layout; the layout was restructured.
+- Sign-in sent users back to the page they had left instead of the landing page (Dashboard for Admins); fixed.
+- Deployment: a CORS origin mismatch blocked the first login, and the static host returned "Not Found" on page refresh (fixed with a `404.html` SPA fallback).
+- Assumption: the brief lists the dashboard under Owner only, so Staff cannot open it (documented in §2; a one-line change in `app/core/permissions.py`).
+
+The author is responsible for the submitted code and should be able to explain the transaction boundaries, the permission model and the order/stock lifecycle (§2, §3, §10).
