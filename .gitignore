@@ -1,0 +1,17 @@
+# secrets / local config - never commit
+.env
+.env.*
+!.env.example
+# dependencies and build output
+.venv/
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.log
+# local data dumps
+*.dump
+*.sql
+.idea/
+.vscode/
